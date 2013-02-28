@@ -1475,6 +1475,13 @@ local function UpdateValue(target, field, value)
     end
 
     if (field == "health") then
+        if players[target]["minhealth"] == -1 then
+            players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
+        else 
+            if players[target]["minhealth"] > math.ceil(players[target].health / players[target]["maxhealth"] * 100) then
+                players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
+            end
+        end
         local newtext
         if (players[target].status == 0) then
             newtext = "DEAD"
@@ -1483,8 +1490,8 @@ local function UpdateValue(target, field, value)
         end
         for _, barname in pairs(ALLBARS) do
             players[target][barname].health.text:SetText(newtext)
+			players[target].fsmall.lowestHP.text:SetText(players[target].minhealth .. "%")
         end
-	    players[target].fsmall.lowestHP.text:SetText(players[target].minhealth .. "%")
     else
         for _, barname in pairs(ALLBARS) do
             players[target][barname].power.text:SetText(value)
@@ -2078,7 +2085,7 @@ local function init()
     local toggle = CreateFrame("Button", nil, WorldFrame)
     toggle:SetHeight(20)
     toggle:SetWidth(130)
-    toggle:SetPoint("TOPRIGHT", 0, 0)
+    toggle:SetPoint("TOPRIGHT", 15, 0)
     toggle.texture = toggle:CreateTexture()
     toggle.texture:SetAllPoints(toggle)
     toggle.texture:SetTexture(0.6, 0.6, 0.2)

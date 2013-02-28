@@ -1,5 +1,5 @@
 ## Interface: 30300
 ## Title: Arena Spectator UI
-## Version: 1.5 by Saqirmdev
+## Version: 1.6 by Saqirmdev
 ArenaSpectator.lua
 combatfeedback.lua
