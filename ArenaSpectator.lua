@@ -25,9 +25,10 @@ SLASH_TEAMSWITCH1 = '/teamswitch'
 SLASH_TEAMSWITCH2 = '/switchteams'
 
 local teamname = {[0]="Use /teamname1 to set name", [1]="Use /teamname2 to set name"}
-local teamscore = {[0]=0, [1]=0}
-local tournamentMode = false
 
+local teamscore = {[0]=0, [1]=0}
+
+local tournamentMode = false
 
 local ignoreAuras = {
     6277,       -- Bind Sight
@@ -125,7 +126,6 @@ local SIZE = {
 --                                              --
 --------------------------------------------------
 
-
 -- Each class icon coordinates in Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes
 local _CLASS_ICON_TCOORDS = {
  ["WARRIOR"] = {0, 0.25, 0, 0.25},
@@ -140,15 +140,15 @@ local _CLASS_ICON_TCOORDS = {
  ["DEATHKNIGHT"] = {0.25, 0.49609375, 0.5, 0.75},
 }
 
--- Table with all player data
-local players
-
 -- Scoreboard Frame
 local scoreFrame
 local teamOneScoreBox
 local teamOneNameBox
 local teamTwoScoreBox
 local teamTwoNameBox
+
+-- Table with all player data
+local players
 
 -- Current watched target
 local watch
@@ -494,11 +494,6 @@ local showAuras = {
     50461, -- anti-magic zone
     48792, -- icebound fortitude
     45524, -- chains of ice
-	
-    -- common
-    -- ---------------------------------------------------------
-    41406, -- damage buff
-    34709, -- shadow sight
 }
 -- Takes class ID (id) and gives text for texture positioning
 local function ClassToTexture(id)
@@ -940,13 +935,13 @@ local function CreateFrameForPlayer(p)
 	cla.cooldown = CreateFrame("Cooldown", nil, cla)
     cla.cooldown:SetAllPoints(cla)
     cla.cooldown:SetReverse()
-    
+	
     local lowestHP = CreateFrame("frame", nil, f)
     lowestHP:SetFrameStrata("MEDIUM")
+	lowestHP:SetWidth(SIZE.SMALL.WIDTH - SIZE.SMALL.HEIGHT - 2)
+    lowestHP:SetHeight(SIZE.SMALL.HEALTHHEIGHT)
     -- lowestHP:SetWidth(120)
     -- lowestHP:SetHeight(30)
-	lowestHP::SetWidth(SIZE.SMALL.WIDTH - SIZE.SMALL.HEIGHT - 2)
-    lowestHP::SetHeight(SIZE.SMALL.HEALTHHEIGHT)
     -- lowestHP.texture = lowestHP:CreateTexture(nil, "BACKGROUND", nil, -7)
     -- lowestHP.texture:SetAllPoints(lowestHP)
     -- lowestHP.texture:SetTexture(0, 0, 0)
@@ -954,20 +949,22 @@ local function CreateFrameForPlayer(p)
     lowestHP.text = lowestHP:CreateFontString(nil, "OVERLAY")
     lowestHP.text:SetFont(STANDARD_TEXT_FONT, SIZE.SMALL.NAMETEXTSIZE, "OUTLINE")
     lowestHP.text:SetText("100%")
-    lowestHP.text:SetPoint("CENTER", 0, 0)	
-	
+    lowestHP.text:SetPoint("CENTER", 0, 0)
+    
     local hp = CreateFrame("StatusBar", nil, f)
     hp:SetWidth(SIZE.SMALL.WIDTH - SIZE.SMALL.HEIGHT - 2)
     hp:SetHeight(SIZE.SMALL.HEALTHHEIGHT)
     hp:SetPoint("TOPLEFT", cla, "TOPRIGHT", 0, 0)
-    hp.texture = hp:CreateTexture("ARTWORK")
-    hp.texture:SetAllPoints(hp)
-    hp.texture:SetTexture(unpack(COLOR.HEALTH_BG))
+   -- hp.texture = hp:CreateTexture("ARTWORK")
+   -- hp.texture:SetAllPoints(hp)
+   -- hp.texture:SetTexture(unpack(COLOR.HEALTH_BG))
     local hptx = hp:CreateTexture("ARTWORK")
     hptx:SetAllPoints(hp)
     hptx:SetTexture(BAR_TEXTURE)
     hp:SetStatusBarTexture(hptx, "ARTWORK")
     hp:SetStatusBarColor(unpack(COLOR.HEALTH))
+	hp:GetStatusBarTexture():SetHorizTile(false)
+    hp:GetStatusBarTexture():SetVertTile(false)
     hp.text = hp:CreateFontString()
     hp.text:SetFont(STANDARD_TEXT_FONT, SIZE.SMALL.HEALTHTEXTSIZE, "OUTLINE")
     hp.text:SetPoint("CENTER", 0, 0)
@@ -1312,7 +1309,7 @@ local function CreateFrameForPlayer(p)
     p.fsmall.castbg = castbg
     p.fsmall.trinket = trinket
     p.fsmall.Debuffs = debuffs
-	p.fsmall.lowestHP = lowestHP
+    p.fsmall.lowestHP = lowestHP
 
     cast:Show()
     mp:Show()
@@ -1487,7 +1484,7 @@ local function UpdateValue(target, field, value)
         for _, barname in pairs(ALLBARS) do
             players[target][barname].health.text:SetText(newtext)
         end
-		    players[target].fsmall.lowestHP.text:SetText(players[target].minhealth .. "%")
+	    players[target].fsmall.lowestHP.text:SetText(players[target].minhealth .. "%")
     else
         for _, barname in pairs(ALLBARS) do
             players[target][barname].power.text:SetText(value)
@@ -1555,7 +1552,7 @@ local function UpdateTarget(target, value)
     if (tonumber(value) == 0) then
         if (target == watch) then
             if (players[watch].target ~= nil) then
-              players[players[watch].target].ftarget.main:Hide()
+                players[players[watch].target].ftarget.main:Hide()
             end
         end
 
@@ -1944,6 +1941,7 @@ function updateTeamTwoScore(self, button)
     updateScoreBoardFrame()
 end
 
+
 function setupScoreboardFrame()
     -- Create ScoreBoard frame
     scoreFrame = CreateFrame("frame", nil, WorldFrame)
@@ -1953,13 +1951,28 @@ function setupScoreboardFrame()
 
     scoreFrame.texture = scoreFrame:CreateTexture()
     scoreFrame.texture:SetAllPoints(scoreFrame)
-    scoreFrame.texture:SetTexture(0, 0, 0)
+    -- scoreFrame.texture:SetTexture(0, 0, 0)
 
-    -- scoreFrame.text = scoreFrame:CreateFontString()
-    -- scoreFrame.text:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE")
-    -- scoreFrame.text:SetPoint("CENTER", 0, 0)
-    -- scoreFrame.text:SetText("Arena-tournament.com")
+    scoreFrame.text = scoreFrame:CreateFontString()
+    scoreFrame.text:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE")
+    scoreFrame.text:SetPoint("CENTER", 0, 0)
+    scoreFrame.text:SetText("wow.urnaweb.cz")
     scoreFrame:Hide()
+
+    -- Create the AT logo frame
+    local logoFrame = CreateFrame("frame", nil, scoreFrame)
+    logoFrame:SetWidth(272)
+    logoFrame:SetHeight(34)
+    logoFrame:SetPoint("CENTER", 0, 0)
+
+   --  logoFrame.texture = logoFrame:CreateTexture(nil, "ARTWORK")
+   --  logoFrame.texture:SetTexture("Interface\\AddOns\\ArenaSpectator\\atLogo", false)
+   --  logoFrame.texture.SetAllPoints(logoFrame)
+   --  logoFrame.texture:SetTexCoord(2, 2, 118, 32)
+    logoFrame:SetBackdrop({bgFile = "Interface\\AddOns\\ArenaSpectator\\Logo", 
+                                            edgeFile = "", 
+                                            tile = false, tileSize = 16, edgeSize = 16, 
+                                            insets = { left = 4, right = 4, top = 4, bottom = 4 }});
 
     -- Create team one score box
     teamOneScoreBox = CreateFrame("Button", nil, scoreFrame)
@@ -1978,7 +1991,7 @@ function setupScoreboardFrame()
 	
 	teamOneScoreBox:RegisterForClicks("AnyDown")
     teamOneScoreBox:SetScript("OnClick", updateTeamOneScore)
-	
+
     -- Create team one name box
     teamOneNameBox = CreateFrame("StatusBar", nil, scoreFrame)
     teamOneNameBox:SetHeight(30)
@@ -1998,6 +2011,7 @@ function setupScoreboardFrame()
     teamOneNameBox.text:SetPoint("LEFT", 4, 0)
     teamOneNameBox.text:SetText(teamname[0])
 
+
     -- Create team two score box
     teamTwoScoreBox = CreateFrame("Button", nil, scoreFrame)
     teamTwoScoreBox:SetHeight(30)
@@ -2014,8 +2028,8 @@ function setupScoreboardFrame()
     teamTwoScoreBox.text:SetText(teamscore[1])
 
     teamTwoScoreBox:RegisterForClicks("AnyDown")
-    teamTwoScoreBox:SetScript("OnClick", updateTeamTwoScore)	
-	
+    teamTwoScoreBox:SetScript("OnClick", updateTeamTwoScore)
+
     -- Create team two name box
     teamTwoNameBox = CreateFrame("StatusBar", nil, scoreFrame)
     teamTwoNameBox:SetHeight(30)
@@ -2044,6 +2058,7 @@ function updateScoreBoardFrame()
     teamTwoScoreBox.text:SetText(teamscore[1])
 end
 
+
 -- Addon setup function
 local function init()
     Reset()
@@ -2063,7 +2078,7 @@ local function init()
     local toggle = CreateFrame("Button", nil, WorldFrame)
     toggle:SetHeight(20)
     toggle:SetWidth(130)
-    toggle:SetPoint("TOP", 0, 0)
+    toggle:SetPoint("TOPLEFT", 0, 0)
     toggle.texture = toggle:CreateTexture()
     toggle.texture:SetAllPoints(toggle)
     toggle.texture:SetTexture(0.6, 0.6, 0.2)
