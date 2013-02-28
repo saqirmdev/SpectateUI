@@ -16,20 +16,6 @@ TimeFrame.text:SetFont(STANDARD_TEXT_FONT, 20, "OUTLINE")
 TimeFrame.text:SetText("00:00")
 TimeFrame:Hide()
 
-SLASH_TEAMNAME_ONE1 = '/teamname1'
-SLASH_TEAMNAME_TWO1 = '/teamname2'
-SLASH_UPDATE_SCORE1 = '/score'
-SLASH_RESET_SCORE1 = '/resetscore'
-SLASH_TOURNAMENT1 = '/tournament'
-SLASH_TEAMSWITCH1 = '/teamswitch'
-SLASH_TEAMSWITCH2 = '/switchteams'
-
-local teamname = {[0]="Use /teamname1 to set name", [1]="Use /teamname2 to set name"}
-
-local teamscore = {[0]=0, [1]=0}
-
-local tournamentMode = false
-
 local ignoreAuras = {
     6277,       -- Bind Sight
     2479,       -- Honorless Target
@@ -139,13 +125,6 @@ local _CLASS_ICON_TCOORDS = {
  ["PALADIN"] = {0, 0.25, 0.5, 0.75},
  ["DEATHKNIGHT"] = {0.25, 0.49609375, 0.5, 0.75},
 }
-
--- Scoreboard Frame
-local scoreFrame
-local teamOneScoreBox
-local teamOneNameBox
-local teamTwoScoreBox
-local teamTwoNameBox
 
 -- Table with all player data
 local players
@@ -935,36 +914,19 @@ local function CreateFrameForPlayer(p)
 	cla.cooldown = CreateFrame("Cooldown", nil, cla)
     cla.cooldown:SetAllPoints(cla)
     cla.cooldown:SetReverse()
-	
-    local lowestHP = CreateFrame("frame", nil, f)
-    lowestHP:SetFrameStrata("MEDIUM")
-	lowestHP:SetWidth(SIZE.SMALL.WIDTH - SIZE.SMALL.HEIGHT - 2)
-    lowestHP:SetHeight(SIZE.SMALL.HEALTHHEIGHT)
-    -- lowestHP:SetWidth(120)
-    -- lowestHP:SetHeight(30)
-    -- lowestHP.texture = lowestHP:CreateTexture(nil, "BACKGROUND", nil, -7)
-    -- lowestHP.texture:SetAllPoints(lowestHP)
-    -- lowestHP.texture:SetTexture(0, 0, 0)
-    lowestHP:SetPoint("TOP", cla, "TOP", 0, 24)
-    lowestHP.text = lowestHP:CreateFontString(nil, "OVERLAY")
-    lowestHP.text:SetFont(STANDARD_TEXT_FONT, SIZE.SMALL.NAMETEXTSIZE, "OUTLINE")
-    lowestHP.text:SetText("100%")
-    lowestHP.text:SetPoint("CENTER", 0, 0)
     
     local hp = CreateFrame("StatusBar", nil, f)
     hp:SetWidth(SIZE.SMALL.WIDTH - SIZE.SMALL.HEIGHT - 2)
     hp:SetHeight(SIZE.SMALL.HEALTHHEIGHT)
     hp:SetPoint("TOPLEFT", cla, "TOPRIGHT", 0, 0)
-   -- hp.texture = hp:CreateTexture("ARTWORK")
-   -- hp.texture:SetAllPoints(hp)
-   -- hp.texture:SetTexture(unpack(COLOR.HEALTH_BG))
+    hp.texture = hp:CreateTexture("ARTWORK")
+    hp.texture:SetAllPoints(hp)
+    hp.texture:SetTexture(unpack(COLOR.HEALTH_BG))
     local hptx = hp:CreateTexture("ARTWORK")
     hptx:SetAllPoints(hp)
     hptx:SetTexture(BAR_TEXTURE)
     hp:SetStatusBarTexture(hptx, "ARTWORK")
     hp:SetStatusBarColor(unpack(COLOR.HEALTH))
-	hp:GetStatusBarTexture():SetHorizTile(false)
-    hp:GetStatusBarTexture():SetVertTile(false)
     hp.text = hp:CreateFontString()
     hp.text:SetFont(STANDARD_TEXT_FONT, SIZE.SMALL.HEALTHTEXTSIZE, "OUTLINE")
     hp.text:SetPoint("CENTER", 0, 0)
@@ -1079,7 +1041,7 @@ local function CreateFrameForPlayer(p)
     shp:SetPoint("TOPLEFT", scla, "TOPRIGHT", 2, 0)
     shp.texture = shp:CreateTexture("ARTWORK")
     shp.texture:SetAllPoints(shp)
-	shp.texture:SetTexture(unpack(COLOR.HEALTH_BG))
+	shp.texture:SetTexture(BAR_TEXTURE)
     local shptx = shp:CreateTexture("ARTWORK")
     shptx:SetAllPoints(shp)
     shptx:SetTexture(BAR_TEXTURE)
@@ -1180,6 +1142,7 @@ local function CreateFrameForPlayer(p)
     thp.texture = thp:CreateTexture("ARTWORK")
     thp.texture:SetAllPoints(thp)
     thp.texture:SetTexture(unpack(COLOR.HEALTH_BG))
+	thp.texture:SetTexture(BAR_TEXTURE)
     local thptx = thp:CreateTexture("ARTWORK")
     thptx:SetAllPoints(thp)
     thptx:SetTexture(BAR_TEXTURE)
@@ -1309,14 +1272,12 @@ local function CreateFrameForPlayer(p)
     p.fsmall.castbg = castbg
     p.fsmall.trinket = trinket
     p.fsmall.Debuffs = debuffs
-    p.fsmall.lowestHP = lowestHP
 
     cast:Show()
     mp:Show()
     hp:Show()
     cla:Show()
     trinket:Show()
-    lowestHP:Show()
     f:Show()
 
     p.fself.main = sf
@@ -1484,7 +1445,6 @@ local function UpdateValue(target, field, value)
         for _, barname in pairs(ALLBARS) do
             players[target][barname].health.text:SetText(newtext)
         end
-	    players[target].fsmall.lowestHP.text:SetText(players[target].minhealth .. "%")
     else
         for _, barname in pairs(ALLBARS) do
             players[target][barname].power.text:SetText(value)
@@ -1514,8 +1474,8 @@ end
 
 local function UpdateHealthBarColor(target)
     for _, barname in pairs(ALLBARS) do
-        players[target][barname].health:SetStatusBarColor(unpack(CLASS_COLORS[ClassToTexture(players[target].class)]))
-        players[target][barname].health:GetStatusBarTexture():SetTexture(BAR_TEXTURE)
+        ATPlayers[target][barname].health:SetStatusBarColor(unpack(CLASS_COLORS[ClassToTexture(ATPlayers[target].class)]))
+        ATPlayers[target][barname].health:GetStatusBarTexture():SetTexture(BAR_TEXTURE)
     end
 end
 
@@ -1836,6 +1796,7 @@ local function EventHandler(self, event, ...)
         end
     elseif (event == "PLAYER_ENTERING_WORLD") then
         Reset()
+	    UpdateSelfHealthBar()
     end
 end
 
@@ -1857,208 +1818,6 @@ local function CheckUIVisibility(self, elapsed)
     end
 end
 
--- Command handlers
-function SlashCmdList.TEAMNAME_ONE(msg, editbox)
-    teamname[0] = msg
-    DEFAULT_CHAT_FRAME:AddMessage("Set team 1's name to " .. msg)
-    updateScoreBoardFrame()
-end
-
-function SlashCmdList.TEAMNAME_TWO(msg, editbox)
-    teamname[1] = msg
-    DEFAULT_CHAT_FRAME:AddMessage("Set team 2's name to " .. msg)
-    updateScoreBoardFrame()
-end
-
-function SlashCmdList.TEAMSWITCH(msg, editbox)
-    local temp = teamname[0]
-    local tempS = teamscore[0]
-    teamname[0] = teamname[1]
-    teamscore[0] = teamscore[1]
-    teamname[1] = temp
-    teamscore[1] = tempS
-    DEFAULT_CHAT_FRAME:AddMessage("Swapped the teams.")
-    updateScoreBoardFrame()
-end
-
-
-function SlashCmdList.UPDATE_SCORE(msg, editbox)
-    local team, score = msg:match("^(%S*)%s*(.-)$");
-    if tonumber(team) ~= nil and (tonumber(team) == 1 or tonumber(team) == 2) then
-        if tonumber(score) ~= nil then
-            teamscore[team - 1] = score
-            DEFAULT_CHAT_FRAME:AddMessage("Updated score of team " .. teamname[team - 1] .. " to " .. score .. ".")
-            updateScoreBoardFrame()
-        else
-            DEFAULT_CHAT_FRAME:AddMessage("Incorrect score specified.")
-        end
-    else
-        DEFAULT_CHAT_FRAME:AddMessage("Invalid team specified.")
-    end
-end
-
-function SlashCmdList.RESET_SCORE(msg, editbox)
-    teamscore = {0, 0}
-    DEFAULT_CHAT_FRAME:AddMessage("The scores were reset.")
-    updateScoreBoardFrame()
-end
-
-function SlashCmdList.TOURNAMENT(msg, editbox)
-    if msg == "on" or msg == "1" then
-        tournamentMode = true
-        DEFAULT_CHAT_FRAME:AddMessage("Enabled tournament mode.")
-        scoreFrame:Show()
-    else
-        tournamentMode = false
-        DEFAULT_CHAT_FRAME:AddMessage("Disabled tournament mode.")
-        scoreFrame:Hide()
-    end
-end
-
-function updateTeamOneScore(self, button)
-    if button == "LeftButton" then
-        teamscore[0] = teamscore[0] + 1
-    end
-    if button == "RightButton" then
-        teamscore[0] = teamscore[0] - 1
-    end
-    if button == "MiddleButton" then
-        teamscore[0] = 0
-    end
-    updateScoreBoardFrame()
-end
-
-function updateTeamTwoScore(self, button)
-    if button == "LeftButton" then
-        teamscore[1] = teamscore[1] + 1
-    end
-    if button == "RightButton" then
-        teamscore[1] = teamscore[1] - 1
-    end
-    if button == "MiddleButton" then
-        teamscore[1] = 0
-    end
-    updateScoreBoardFrame()
-end
-
-
-function setupScoreboardFrame()
-    -- Create ScoreBoard frame
-    scoreFrame = CreateFrame("frame", nil, WorldFrame)
-    scoreFrame:SetHeight(34)
-    scoreFrame:SetWidth(700)
-    scoreFrame:SetPoint("TOP", 0, 0)
-
-    scoreFrame.texture = scoreFrame:CreateTexture()
-    scoreFrame.texture:SetAllPoints(scoreFrame)
-    -- scoreFrame.texture:SetTexture(0, 0, 0)
-
-    scoreFrame.text = scoreFrame:CreateFontString()
-    scoreFrame.text:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE")
-    scoreFrame.text:SetPoint("CENTER", 0, 0)
-    scoreFrame.text:SetText("wow.urnaweb.cz")
-    scoreFrame:Hide()
-
-    -- Create the AT logo frame
-    local logoFrame = CreateFrame("frame", nil, scoreFrame)
-    logoFrame:SetWidth(272)
-    logoFrame:SetHeight(34)
-    logoFrame:SetPoint("CENTER", 0, 0)
-
-   --  logoFrame.texture = logoFrame:CreateTexture(nil, "ARTWORK")
-   --  logoFrame.texture:SetTexture("Interface\\AddOns\\ArenaSpectator\\atLogo", false)
-   --  logoFrame.texture.SetAllPoints(logoFrame)
-   --  logoFrame.texture:SetTexCoord(2, 2, 118, 32)
-    logoFrame:SetBackdrop({bgFile = "Interface\\AddOns\\ArenaSpectator\\Logo", 
-                                            edgeFile = "", 
-                                            tile = false, tileSize = 16, edgeSize = 16, 
-                                            insets = { left = 4, right = 4, top = 4, bottom = 4 }});
-
-    -- Create team one score box
-    teamOneScoreBox = CreateFrame("Button", nil, scoreFrame)
-    teamOneScoreBox:SetHeight(30)
-    teamOneScoreBox:SetWidth(30)
-    teamOneScoreBox:SetPoint("LEFT", 2, 0)
-
-    teamOneScoreBox.texture = teamOneScoreBox:CreateTexture()
-    teamOneScoreBox.texture:SetAllPoints(teamOneScoreBox)
-    teamOneScoreBox.texture:SetTexture(.8, .2, .2)
-
-    teamOneScoreBox.text = teamOneScoreBox:CreateFontString()
-    teamOneScoreBox.text:SetFont(STANDARD_TEXT_FONT, 16, "OUTLINE")
-    teamOneScoreBox.text:SetPoint("CENTER", 0, 0)
-    teamOneScoreBox.text:SetText(teamscore[0])
-	
-	teamOneScoreBox:RegisterForClicks("AnyDown")
-    teamOneScoreBox:SetScript("OnClick", updateTeamOneScore)
-
-    -- Create team one name box
-    teamOneNameBox = CreateFrame("StatusBar", nil, scoreFrame)
-    teamOneNameBox:SetHeight(30)
-    teamOneNameBox:SetWidth(200)
-    teamOneNameBox:SetPoint("LEFT", 34, 0)
-
-    local tonbtext = teamOneNameBox:CreateTexture(nil, "ARTWORK", nil, 7)
-    tonbtext:SetAllPoints(teamOneNameBox)
-    tonbtext:SetTexture(BAR_TEXTURE)
-    teamOneNameBox:SetStatusBarTexture(tonbtext)
-    teamOneNameBox:SetStatusBarColor(.8, .2, .2)
-    teamOneNameBox:GetStatusBarTexture():SetHorizTile(false)
-    teamOneNameBox:GetStatusBarTexture():SetVertTile(false)
-
-    teamOneNameBox.text = teamOneNameBox:CreateFontString()
-    teamOneNameBox.text:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE")
-    teamOneNameBox.text:SetPoint("LEFT", 4, 0)
-    teamOneNameBox.text:SetText(teamname[0])
-
-
-    -- Create team two score box
-    teamTwoScoreBox = CreateFrame("Button", nil, scoreFrame)
-    teamTwoScoreBox:SetHeight(30)
-    teamTwoScoreBox:SetWidth(30)
-    teamTwoScoreBox:SetPoint("RIGHT", -2, 0)
-
-    teamTwoScoreBox.texture = teamTwoScoreBox:CreateTexture()
-    teamTwoScoreBox.texture:SetAllPoints(teamTwoScoreBox)
-    teamTwoScoreBox.texture:SetTexture(.27, .51, .7)
-
-    teamTwoScoreBox.text = teamTwoScoreBox:CreateFontString()
-    teamTwoScoreBox.text:SetFont(STANDARD_TEXT_FONT, 16, "OUTLINE")
-    teamTwoScoreBox.text:SetPoint("CENTER", 0, 0)
-    teamTwoScoreBox.text:SetText(teamscore[1])
-
-    teamTwoScoreBox:RegisterForClicks("AnyDown")
-    teamTwoScoreBox:SetScript("OnClick", updateTeamTwoScore)
-
-    -- Create team two name box
-    teamTwoNameBox = CreateFrame("StatusBar", nil, scoreFrame)
-    teamTwoNameBox:SetHeight(30)
-    teamTwoNameBox:SetWidth(200)
-    teamTwoNameBox:SetPoint("RIGHT", -34, 0)
-
-    local ttnbtext = teamTwoNameBox:CreateTexture(nil, "ARTWORK", nil, 7)
-    ttnbtext:SetAllPoints(teamTwoNameBox)
-    ttnbtext:SetTexture(BAR_TEXTURE)
-    teamTwoNameBox:SetStatusBarTexture(ttnbtext)
-    teamTwoNameBox:SetStatusBarColor(.27, .51, .7)
-    teamTwoNameBox:GetStatusBarTexture():SetHorizTile(false)
-    teamTwoNameBox:GetStatusBarTexture():SetVertTile(false)
-
-    teamTwoNameBox.text = teamTwoNameBox:CreateFontString()
-    teamTwoNameBox.text:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE")
-    teamTwoNameBox.text:SetPoint("RIGHT", -4, 0)
-    teamTwoNameBox.text:SetText(teamname[1])
-end
-
-function updateScoreBoardFrame()
-    teamOneNameBox.text:SetText(teamname[0])
-    teamOneScoreBox.text:SetText(teamscore[0])
-
-    teamTwoNameBox.text:SetText(teamname[1])
-    teamTwoScoreBox.text:SetText(teamscore[1])
-end
-
-
 -- Addon setup function
 local function init()
     Reset()
@@ -2078,7 +1837,7 @@ local function init()
     local toggle = CreateFrame("Button", nil, WorldFrame)
     toggle:SetHeight(20)
     toggle:SetWidth(130)
-    toggle:SetPoint("TOPLEFT", 0, 0)
+    toggle:SetPoint("TOP", 0, 0)
     toggle.texture = toggle:CreateTexture()
     toggle.texture:SetAllPoints(toggle)
     toggle.texture:SetTexture(0.6, 0.6, 0.2)
@@ -2088,8 +1847,6 @@ local function init()
     toggle.text:SetPoint("CENTER", 0, 0)
     toggle.text:SetText(TEXT.TOGGLEUI)
     toggle:Show()
-	
-    setupScoreboardFrame()
 
     DEFAULT_CHAT_FRAME:AddMessage("Loaded Arena Spectator UI")
 end
