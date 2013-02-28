@@ -1,5 +1,6 @@
 ## Interface: 30300
 ## Title: Arena Spectator UI
-## Version: 01  (remake 15)
+## Version: 03  (remake 15)
+## SavedVariables: teamname, teamscore, tournamentMode
 ArenaSpectator.lua
 combatfeedback.lua
