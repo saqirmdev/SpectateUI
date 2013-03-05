@@ -24,12 +24,6 @@ SLASH_TOURNAMENT1 = '/tournament'
 SLASH_TEAMSWITCH1 = '/teamswitch'
 SLASH_TEAMSWITCH2 = '/switchteams'
 
-local teamname = {[0]="Use /teamname1 to set name", [1]="Use /teamname2 to set name"}
-
-local teamscore = {[0]=0, [1]=0}
-
-local tournamentMode = false
-
 local ignoreAuras = {
     6277,       -- Bind Sight
     2479,       -- Honorless Target
@@ -126,6 +120,11 @@ local SIZE = {
 --                                              --
 --------------------------------------------------
 
+-- Saved variables
+teamname = {[0]="Use /teamname1 to set name", [1]="Use /teamname2 to set name"}
+teamscore = {[0]=0, [1]=0}
+tournamentMode = false
+
 -- Each class icon coordinates in Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes
 local _CLASS_ICON_TCOORDS = {
  ["WARRIOR"] = {0, 0.25, 0, 0.25},
@@ -148,7 +147,10 @@ local teamTwoScoreBox
 local teamTwoNameBox
 
 -- Table with all player data
-local players
+local players = {}
+
+-- Table with all player data ever created
+local allPlayers = {}
 
 -- Current watched target
 local watch
@@ -887,7 +889,6 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             if aurastack[index].icon then 
                 aurastack[index].icon:SetAlpha(0)              
                 aurastack[index].icon.on = 0
-                aurastack[index].active = false
             end
             found = false
         end
@@ -936,20 +937,6 @@ local function CreateFrameForPlayer(p)
     cla.cooldown:SetAllPoints(cla)
     cla.cooldown:SetReverse()
 	
-    local lowestHP = CreateFrame("frame", nil, f)
-    lowestHP:SetFrameStrata("MEDIUM")
-    lowestHP:SetWidth(SIZE.SMALL.WIDTH - SIZE.SMALL.HEIGHT - 2)
-    lowestHP:SetHeight(SIZE.SMALL.HEALTHHEIGHT)
-   -- lowestHP:SetWidth(120)
-   -- lowestHP:SetHeight(30)
-   -- lowestHP.texture = lowestHP:CreateTexture(nil, "BACKGROUND", nil, -7)
-   -- lowestHP.texture:SetAllPoints(lowestHP)
-   -- lowestHP.texture:SetTexture(0, 0, 0)
-    lowestHP:SetPoint("TOP", cla, "TOP", 0, 24)
-    lowestHP.text = lowestHP:CreateFontString(nil, "OVERLAY")
-    lowestHP.text:SetFont(STANDARD_TEXT_FONT, SIZE.SMALL.NAMETEXTSIZE, "OUTLINE")
-    lowestHP.text:SetText("100%")
-    lowestHP.text:SetPoint("CENTER", 0, 0)
     
     local hp = CreateFrame("StatusBar", nil, f)
     hp:SetWidth(SIZE.SMALL.WIDTH - SIZE.SMALL.HEIGHT - 2)
@@ -963,8 +950,8 @@ local function CreateFrameForPlayer(p)
     hptx:SetTexture(BAR_TEXTURE)
     hp:SetStatusBarTexture(hptx, "ARTWORK")
     hp:SetStatusBarColor(unpack(COLOR.HEALTH))
-   -- hp:GetStatusBarTexture():SetHorizTile(false)
-   -- hp:GetStatusBarTexture():SetVertTile(false)
+    hp:GetStatusBarTexture():SetHorizTile(false)
+    hp:GetStatusBarTexture():SetVertTile(false)
     hp.text = hp:CreateFontString()
     hp.text:SetFont(STANDARD_TEXT_FONT, SIZE.SMALL.HEALTHTEXTSIZE, "OUTLINE")
     hp.text:SetPoint("CENTER", 0, 0)
@@ -1309,14 +1296,12 @@ local function CreateFrameForPlayer(p)
     p.fsmall.castbg = castbg
     p.fsmall.trinket = trinket
     p.fsmall.Debuffs = debuffs
-    p.fsmall.lowestHP = lowestHP
 
     cast:Show()
     mp:Show()
     hp:Show()
     cla:Show()
     trinket:Show()
-    lowestHP:Show()
     f:Show()
 
     p.fself.main = sf
@@ -1475,22 +1460,24 @@ local function UpdateValue(target, field, value)
     end
 
     if (field == "health") then
-        if players[target]["minhealth"] == -1 then
-            players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
-        else 
-            if players[target]["minhealth"] > math.ceil(players[target].health / players[target]["maxhealth"] * 100) then
-                players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
-            end
-        end
+	
+      --  if (players[target]["minhealth"] == -1) then
+       --     players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
+       -- else 
+       --     if (players[target]["minhealth"] > math.ceil(players[target].health / players[target]["maxhealth"] * 100)) then
+        --        players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
+        --    end
+       -- end
+		
         local newtext
         if (players[target].status == 0) then
             newtext = "DEAD"
         else
-            newtext = math.ceil(players[target].health / players[target]["maxhealth"] * 100) .. "%"
+           -- newtext = math.ceil(players[target].health / players[target]["maxhealth"] * 100) .. "%  (" .. players[target].minhealth .. "%)"
+		   newtext = math.ceil(players[target].health / players[target]["maxhealth"] * 100) .. "%"
         end
         for _, barname in pairs(ALLBARS) do
             players[target][barname].health.text:SetText(newtext)
-			players[target].fsmall.lowestHP.text:SetText(players[target].minhealth .. "%")
         end
     else
         for _, barname in pairs(ALLBARS) do
@@ -1753,7 +1740,6 @@ local function Execute(target, prefix, ...)
     local value = ...
     if (players[target] == nil) then
         players[target] = CreatePlayer(target)
-        players[target].unit = target
         CreateFrameForPlayer(players[target])
         ForceUpdate()
     end
@@ -1843,6 +1829,17 @@ local function EventHandler(self, event, ...)
         end
     elseif (event == "PLAYER_ENTERING_WORLD") then
         Reset()
+    end
+    if event == "ADDON_LOADED" then
+        updateScoreBoardFrame()
+        if tournamentMode then
+            scoreFrame:Show()
+        end
+    end
+
+    if GetBattlefieldWinner() ~= nil then
+        teamscore[GetBattlefieldWinner()] = teamscore[GetBattlefieldWinner()] + 1
+        updateScoreBoardFrame()
     end
 end
 
@@ -1953,7 +1950,7 @@ function setupScoreboardFrame()
     -- Create ScoreBoard frame
     scoreFrame = CreateFrame("frame", nil, WorldFrame)
     scoreFrame:SetHeight(34)
-    scoreFrame:SetWidth(700)
+    scoreFrame:SetWidth(650)
     scoreFrame:SetPoint("TOP", 0, 0)
 
     -- scoreFrame.texture = scoreFrame:CreateTexture()
@@ -2075,6 +2072,7 @@ local function init()
     frame:RegisterEvent("CHAT_MSG_ADDON")
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	frame:RegisterEvent("ADDON_LOADED")
     frame:SetScript("OnEvent", EventHandler)
     frame:SetScript("OnUpdate", CheckUIVisibility)
 
