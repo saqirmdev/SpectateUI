@@ -80,6 +80,19 @@ local COLOR = {
     ["RUNICPOWER_BG"] = {0.0, 0.16, 0.2, 0.9},
 }
 
+local CLASS_COLORS = {
+    ["WARRIOR"] = {.78, .61, .43, 1},
+    ["WARLOCK"] = {.58, .51, .79, 1},
+    ["SHAMAN"] = {0, .44, .87, 1},
+    ["ROGUE"] = {1, .96, .41, 1},
+    ["PRIEST"] = {1, 1, 1, 1},
+    ["PALADIN"] = {1, .65, .8, 1},
+    ["MAGE"] = {.41, .8, .94, 1},
+    ["HUNTER"] = {.67, .83, .45, 1},
+    ["DRUID"] = {1, .6, .04, 1},
+    ["DEATHKNIGHT"] = {.77, .12, .23, 1}
+}
+
 -- Frame sizes
 local SIZE = {
     ["SMALL"] = { -- Small (team) frame
@@ -599,7 +612,8 @@ local function SetViewPoint(frame)
     if (watch ~= nil) then
         players[watch].fself.main:Hide()
         if (players[watch].target ~= nil) then
-            players[players[watch].target].ftarget.main:Hide()
+            if (players[players[watch].target] ~= nil) then
+                players[players[watch].target].ftarget.main:Hide()
         end
     end
 
@@ -607,7 +621,9 @@ local function SetViewPoint(frame)
     if (watch ~= nil) then
         players[watch].fself.main:Show()
         if (players[watch].target ~= nil) then
-            players[players[watch].target].ftarget.main:Show()
+            if (players[players[watch].target] ~= nil) then
+                players[players[watch].target].ftarget.main:Show()
+            end
         end
     end
 end
@@ -638,14 +654,20 @@ local function UpdateFrame(self, elapsed)
     end
 end
 
--- Global castbar update function, updates castbars for all players, called before every UI redraw
+-- Global castbar update function, updates castbars for all ATPlayers, called before every UI redraw
 local function UpdateCastBar(self, elapsed)
     for _, p in pairs(players) do
-        local a, b = p.fsmall.cast:GetMinMaxValues()
-        if (p.fsmall.cast:GetValue() < b) then
-            local newvalue = p.fsmall.cast:GetValue() + elapsed
+        local goal = select(2, p.fsmall.cast:GetMinMaxValues())
+        local current = p.fsmall.cast:GetValue()
+        local direction = p.fsmall.cast.direction
+        if direction < 0 then
+            goal = 0
+        end
+        local change = elapsed * direction
+        
+        if (direction > 0 and current < goal) or (direction < 0 and current > goal) then
             for _, barname in pairs(ALLBARS) do
-                p[barname].cast:SetValue(newvalue)
+                p[barname].cast:SetValue(current + change)
             end
         else
             if ((p.fsmall.cast.text:GetText() == TEXT.SUCCESS) or (p.fsmall.cast.text:GetText() == TEXT.INTERRUPTED)) then
@@ -660,7 +682,8 @@ local function UpdateCastBar(self, elapsed)
                     p[barname].cast:GetStatusBarTexture():SetTexture(unpack(COLOR.CASTBAR_SUCCESS))
                     p[barname].cast.text:SetTextColor(unpack(COLOR.CASTBAR_SUCCESS_TEXT))
                     p[barname].cast.text:SetText(TEXT.SUCCESS)
-                    p[barname].cast:SetMinMaxValues(0, 0.4)
+                    p[barname].cast.direction = 1
+                    p[barname].cast:SetMinMaxValues(0, 0.7)
                     p[barname].cast:SetValue(0)
                 end
             end
@@ -1157,6 +1180,19 @@ local function CreateFrameForPlayer(p)
 	tcla.cooldown = CreateFrame("Cooldown", nil, tcla)
     tcla.cooldown:SetAllPoints(tcla)
     tcla.cooldown:SetReverse()
+	
+    local lowestHP = CreateFrame("frame", nil, f)
+    lowestHP:SetFrameStrata("MEDIUM")
+    lowestHP:SetWidth(120)
+    lowestHP:SetHeight(30)
+    -- lowestHP.texture = lowestHP:CreateTexture(nil, "BACKGROUND", nil, -7)
+    -- lowestHP.texture:SetAllPoints(lowestHP)
+    -- lowestHP.texture:SetTexture(0, 0, 0)
+    lowestHP:SetPoint("TOP", cla, "TOP", 0, 24)
+    lowestHP.text = lowestHP:CreateFontString(nil, "OVERLAY")
+    lowestHP.text:SetFont(STANDARD_TEXT_FONT, SIZE.SMALL.NAMETEXTSIZE, "OUTLINE")
+    lowestHP.text:SetText("100%")
+    lowestHP.text:SetPoint("CENTER", 0, 0)
     
     local thp = CreateFrame("StatusBar", nil, tf)
     thp:SetSize(SIZE.BIG.WIDTH - SIZE.BIG.HEIGHT - 2, SIZE.BIG.HEALTHHEIGHT)
@@ -1293,12 +1329,14 @@ local function CreateFrameForPlayer(p)
     p.fsmall.castbg = castbg
     p.fsmall.trinket = trinket
     p.fsmall.Debuffs = debuffs
+    p.fsmall.lowestHP = lowestHP
 
     cast:Show()
     mp:Show()
     hp:Show()
     cla:Show()
     trinket:Show()
+    lowestHP:Show()
     f:Show()
 
     p.fself.main = sf
@@ -1339,6 +1377,7 @@ local function CreatePlayer(value)
     _player.name = value
     _player.health = 1
     _player.maxhealth = 1
+    _player.minhealth = -1
     _player.powertype = 1
     _player.power = 1
     _player.maxpower = 1
@@ -1435,7 +1474,7 @@ local function RedrawClassIcon(pla)
             end
         end
     else
-      local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(highAura.spellId)
+        local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(highAura.spellId)
         for _, barname in pairs(ALLBARS) do
             if highAura.icon.cd.cdStart ~= nil then
                 players[pla][barname].class.cooldown:SetCooldown(highAura.icon.cd.cdStart, highAura.icon.cd.cdDuration)
@@ -1458,24 +1497,24 @@ local function UpdateValue(target, field, value)
 
     if (field == "health") then
 	
-      --  if (players[target]["minhealth"] == -1) then
-       --     players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
-       -- else 
-       --     if (players[target]["minhealth"] > math.ceil(players[target].health / players[target]["maxhealth"] * 100)) then
-        --        players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
-        --    end
-       -- end
+        if (players[target]["minhealth"] == -1) then
+            players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
+        else 
+            if (players[target]["minhealth"] > math.ceil(players[target].health / players[target]["maxhealth"] * 100)) then
+                players[target]["minhealth"] = math.ceil(players[target].health / players[target]["maxhealth"] * 100)
+            end
+        end
 		
         local newtext
         if (players[target].status == 0) then
             newtext = "DEAD"
         else
-           -- newtext = math.ceil(players[target].health / players[target]["maxhealth"] * 100) .. "%  (" .. players[target].minhealth .. "%)"
 		   newtext = math.ceil(players[target].health / players[target]["maxhealth"] * 100) .. "%"
         end
         for _, barname in pairs(ALLBARS) do
             players[target][barname].health.text:SetText(newtext)
         end
+        players[target].fsmall.lowestHP.text:SetText(players[target].minhealth .. "%")
     else
         for _, barname in pairs(ALLBARS) do
             players[target][barname].power.text:SetText(value)
@@ -1543,7 +1582,9 @@ local function UpdateTarget(target, value)
     if (tonumber(value) == 0) then
         if (target == watch) then
             if (players[watch].target ~= nil) then
-                players[players[watch].target].ftarget.main:Hide()
+                if (players[players[watch].target] ~= nil) then
+                    players[players[watch].target].ftarget.main:Hide()
+                end
             end
         end
 
@@ -1551,7 +1592,8 @@ local function UpdateTarget(target, value)
     else
         if (target == watch) then
             if (players[watch].target ~= nil) then
-                players[players[watch].target].ftarget.main:Hide()
+                if (players[players[watch].target] ~= nil) then
+                    players[players[watch].target].ftarget.main:Hide()
             end
             players[value].ftarget.main:Show()
         end
@@ -1611,7 +1653,12 @@ end
 
 -- Update current casted spell (id) with cast time (casttime) for player (target)
 local function UpdateSpell(target, id, casttime)
-    local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(id)
+    local realtime = casttime
+    if casttime < 0 then
+        realtime = -casttime
+    end
+
+    local name, rank, icon, cost, isFunnel, powerType, _, minRange, maxRange = GetSpellInfo(id)
     SetSpell(target, 3, players[target].spells[2].id, players[target].spells[2].tim, players[target].spells[2].interrupted)
     SetSpell(target, 2, players[target].spells[1].id, players[target].spells[1].tim, players[target].spells[1].interrupted)
     SetSpell(target, 1, players[target].spells[0].id, players[target].spells[0].tim, players[target].spells[0].interrupted)
@@ -1620,16 +1667,26 @@ local function UpdateSpell(target, id, casttime)
     for _, barname in pairs(ALLBARS) do
         players[target][barname].cast:SetValue(1000)
         players[target][barname].cast:SetAlpha(0)
+        players[target][barname].castbg:SetAlpha(0)
     end
-    if (casttime > 0) then
+    if casttime > 0 or casttime < 0 then
         for _, barname in pairs(ALLBARS) do
             players[target][barname].cast.texture:SetTexture(unpack(COLOR.CASTBAR_BG))
             players[target][barname].cast:SetStatusBarColor(unpack(COLOR.CASTBAR))
             players[target][barname].cast:GetStatusBarTexture():SetTexture(unpack(COLOR.CASTBAR))
             players[target][barname].cast.text:SetTextColor(unpack(COLOR.CASTBAR_TEXT))
             players[target][barname].cast.text:SetText(name)
-            players[target][barname].cast:SetMinMaxValues(0, casttime / 1000)
-            players[target][barname].cast:SetValue(0)
+            if casttime > 0 then
+                players[target][barname].cast.direction = 1
+            else
+                players[target][barname].cast.direction = -1
+            end
+            players[target][barname].cast:SetMinMaxValues(0, realtime / 1000)
+            if casttime > 0 then
+                players[target][barname].cast:SetValue(0)
+            else
+                players[target][barname].cast:SetValue(realtime / 1000)
+            end
             players[target][barname].cast:SetAlpha(1) 
             players[target][barname].castbg:SetAlpha(1)
         end
@@ -1643,7 +1700,14 @@ end
 -- Interrupts spell (id) for player (target)
 local function InterruptSpell(target, id)
     if (players[target].spells[0].id == id) then
-        if (players[target].fsmall.cast:GetValue() < select(2, players[target].fsmall.cast:GetMinMaxValues())) then
+        local goal = select(2, players[target].fsmall.cast:GetMinMaxValues())
+        local current = players[target].fsmall.cast:GetValue()
+        local direction = players[target].fsmall.cast.direction
+        if direction < 0 then
+            goal = 0
+        end
+    
+        if (current < goal and direction > 0) or (current > goal and direction < 0) then
             players[target].spells[0].interrupted = true
             RedrawSpellFrame(target, 0)
             for _, barname in pairs(ALLBARS) do
@@ -1652,7 +1716,8 @@ local function InterruptSpell(target, id)
                 players[target][barname].cast:GetStatusBarTexture():SetTexture(unpack(COLOR.CASTBAR_INTERRUPT))
                 players[target][barname].cast.text:SetTextColor(unpack(COLOR.CASTBAR_INTERRUPT_TEXT))
                 players[target][barname].cast.text:SetText(TEXT.INTERRUPTED)
-                players[target][barname].cast:SetMinMaxValues(0, 0.4)
+                players[target][barname].cast.direction = 1
+                players[target][barname].cast:SetMinMaxValues(0, 0.7)
                 players[target][barname].cast:SetValue(0)
                 players[target][barname].cast:SetAlpha(1)
                 players[target][barname].castbg:SetAlpha(1)
@@ -1669,10 +1734,12 @@ local function CancelSpell(target, id)
                 players[target][barname].cast:SetMinMaxValues(0, 1)
                 players[target][barname].cast:SetValue(2)
                 players[target][barname].cast:SetAlpha(0)
+                players[target][barname].castbg:SetAlpha(0)
             end
         end
     end
 end
+
 
 function SetEndTime(newTime)
     TimeFrame.time = newTime
