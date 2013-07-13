@@ -802,14 +802,10 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
     icons[index].icon = icon
 end
 
-local ResetAuras = function(aurastack)    
+local ResetAuras = function(aurastack)
     for index=1, #aurastack do
         if aurastack[index].icon then 
-            aurastack[index].icon:SetScript("OnUpdate", function(self, elapsed)
-                self:SetAlpha(self:GetAlpha() - .03)
-                if self:GetAlpha() == 0 then self:SetScript("OnUpdate", nil) end
-            end)
-            
+            aurastack[index].icon:SetAlpha(0)         
             aurastack[index].icon.on = 0
         end
     end
@@ -889,6 +885,7 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             if aurastack[index].icon then 
                 aurastack[index].icon:SetAlpha(0)              
                 aurastack[index].icon.on = 0
+               aurastack[index].active = false
             end
             found = false
         end
@@ -1861,6 +1858,168 @@ local function CheckUIVisibility(self, elapsed)
     end
 end
 
+-- Add dropdown button to dropdown menu
+function ASPEC_addDropDownMenuButton(uid, dropdown, index, title, usable, onClick, hint)
+  if (not UnitPopupMenus[dropdown]) then return end
+  tinsert(UnitPopupMenus[dropdown],index,uid);
+  if (hint) then
+    UnitPopupButtons[uid] = { text = title, dist = 0, tooltip = hint};
+  else
+    UnitPopupButtons[uid] = { text = title, dist = 0};
+  end
+  ASPEC_USER_DROPDOWNBUTTONS[uid] = {func = function(self)
+      onClick(self,UIDROPDOWNMENU_OPEN_MENU.name,UIDROPDOWNMENU_OPEN_MENU.unit,UIDROPDOWNMENU_OPEN_MENU.server);
+    end, enabled = usable};
+end
+ASPEC_USER_DROPDOWNBUTTONS = {};
+local default_UIDropDownMenu_AddButton = UIDropDownMenu_AddButton;
+UIDropDownMenu_AddButton = function(info, level)
+  if(ASPEC_USER_DROPDOWNBUTTONS[info.value]) then
+    local dropdownFrame = getglobal(UIDROPDOWNMENU_INIT_MENU);
+    info.func = ASPEC_USER_DROPDOWNBUTTONS[info.value].func;
+  end;
+  default_UIDropDownMenu_AddButton(info,level);
+end;
+
+function ASPEC_try_spectate(self, name, unit, server)
+    SendChatMessage(".spectate player " .. name, "GUILD");
+end
+
+-- This is to keep track when to overtake WHO_LIST_UPDATE
+ASPEC_WhoTime = 0
+ASPEC_TemporaryUnsubscribed = false
+function ASPEC_RecentWho()
+    return (time() - ASPEC_WhoTime < 3)
+end
+
+-- Do not show /who frame if we requested the /who
+function ASPEC_FriendsFrame_OnEvent(...)
+    if event == "WHO_LIST_UPDATE" and ASPEC_RecentWho() then
+        ASPEC_HandleWhoResult()
+    else
+        ASPEC_original_FriendsFrame_OnEvent(...)
+    end
+end
+ASPEC_original_FriendsFrame_OnEvent = FriendsFrame_OnEvent;
+FriendsFrame_OnEvent = ASPEC_FriendsFrame_OnEvent;
+
+ASPEC_ArenaZones = {"Nagrand Arena", "Blade's Edge Arena", "Ruins of Lordaeron", "Dalaran Sewers", "The Ring of Valor"}
+if GetLocale() == "deDE" then
+elseif GetLocale() == "frFR" then
+elseif GetLocale() == "ruRU" then
+elseif GetLocale() == "esES" then
+end
+
+-- Check if zone is within arena (by name)
+function ASPEC_IsArenaZone(zone)
+    for i,v in pairs(ASPEC_ArenaZones) do
+        if v == zone then
+            return true
+        end
+    end
+    return false
+end
+
+-- Called when subscribe target is in arena (can be called multiple times)
+function ASPEC_On_Subscribe_Target_In_Arena()
+    StaticPopupDialogs["ARENASPECTATOR_ON_SUBSCRIBE_IN_ARENA"] = {
+        text = ASPEC_Subscribe_Target .. " has entered arena.",
+        button1 = "Spectate",
+        button2 = "Cancel",
+        OnAccept = function()
+            ASPEC_try_spectate(nil, ASPEC_Subscribe_Target, nil, nil)
+        end,
+        OnCancel = function()
+            ASPEC_UnsubscribeFull()
+        end,
+        whileDead = true,
+        timeout = 0,
+        hideOnEscape = false,
+        preferredIndex = 3,
+    }
+
+    ASPEC_UnsubscribeTmp()
+
+    inArena = IsActiveBattlefieldArena()
+    if not inArena then
+        StaticPopup_Show("ARENASPECTATOR_ON_SUBSCRIBE_IN_ARENA")
+    end
+end
+
+-- Handle WHO_LIST_UPDATE
+function ASPEC_HandleWhoResult()
+    ASPEC_WhoTime = 0 -- To prevent hijacking any /who by player
+    local count = GetNumWhoResults()
+    for i = 1, count do
+        local name, _, _, _, _, zone = GetWhoInfo(i)
+        if name == ASPEC_Subscribe_Target and ASPEC_IsArenaZone(zone) then
+            ASPEC_On_Subscribe_Target_In_Arena()
+        end
+    end
+end
+
+-- Send /who
+function ASPEC_QueryWho(name)
+    ASPEC_WhoTime = time() -- Keep track of last who
+    SetWhoToUI(1) -- To prevent /who going to chat frame
+    SendWho('n-"' .. name .. '"')
+end
+
+ASPEC_Subscribe_Target = ''
+ASPEC_WhoFrame = CreateFrame("Frame")
+function ASPEC_WhoFrame_OnUpdate(self, elapsed)
+    self.timer = self.timer - elapsed
+    if self.timer < 0 then
+        ASPEC_QueryWho(ASPEC_Subscribe_Target)
+        self.timer = 5
+    end
+end
+
+function ASPEC_WhoFrame_OnEvent(self, event, ...)
+    zone = GetRealZoneText()
+    if not ASPEC_IsArenaZone(zone) and ASPEC_TemporaryUnsubscribed then
+        StaticPopupDialogs["ARENASPECTATOR_ON_LEAVE_WITH_SUBSCRIBED"] = {
+            text = "Would you like to resubscribe to " .. ASPEC_Subscribe_Target .. "?",
+            button1 = "Yes",
+            button2 = "No",
+            OnAccept = function()
+                ASPEC_SubscribeTo(ASPEC_Subscribe_Target)
+            end,
+            OnCancel = function()
+                ASPEC_UnsubscribeFull()
+            end,
+            whileDead = true,
+            timeout = 0,
+            hideOnEscape = false,
+            preferredIndex = 3,
+        }
+        
+        StaticPopup_Show("ARENASPECTATOR_ON_LEAVE_WITH_SUBSCRIBED")
+    end
+end
+ASPEC_WhoFrame:SetScript("OnEvent", ASPEC_WhoFrame_OnEvent)
+ASPEC_WhoFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+
+function ASPEC_SubscribeTo(name)
+    ASPEC_Subscribe_Target = name
+    ASPEC_WhoFrame.timer = 1
+    ASPEC_WhoFrame:SetScript("OnUpdate", ASPEC_WhoFrame_OnUpdate)
+end
+
+function ASPEC_try_SubscribeTo(self, name, unit, server)
+    ASPEC_SubscribeTo(name)
+end
+
+function ASPEC_UnsubscribeTmp()
+    ASPEC_WhoFrame:SetScript("OnUpdate", nil)
+    ASPEC_TemporaryUnsubscribed = true
+end
+
+function ASPEC_UnsubscribeFull()
+    ASPEC_WhoFrame:SetScript("OnUpdate", nil)
+    ASPEC_TemporaryUnsubscribed = false
+end
+
 -- Command handlers
 function SlashCmdList.TEAMNAME_ONE(msg, editbox)
     teamname[0] = msg
@@ -2095,6 +2254,13 @@ local function init()
     toggle:Show()
 	
     setupScoreboardFrame()
+	
+    -- Add spectate option to dropdowns
+    ASPEC_addDropDownMenuButton("ASPEC_DDMENU_1", "PLAYER", 1, "|cff00ffffSpectate|r", true, ASPEC_try_spectate, "Spectate")
+    ASPEC_addDropDownMenuButton("ASPEC_DDMENU_2", "PLAYER", 2, "|cff00ffffSubscribe|r", true, ASPEC_try_SubscribeTo, "Subscribe")
+    ASPEC_addDropDownMenuButton("ASPEC_DDMENU_1", "FRIEND", 1, "|cff00ffffSpectate|r", true, ASPEC_try_spectate, "Spectate")
+    ASPEC_addDropDownMenuButton("ASPEC_DDMENU_2", "FRIEND", 2, "|cff00ffffSubscribe|r", true, ASPEC_try_SubscribeTo, "Subscribe")
+
 
     DEFAULT_CHAT_FRAME:AddMessage("Loaded Arena Spectator UI")
 end
