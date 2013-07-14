@@ -614,6 +614,7 @@ local function SetViewPoint(frame)
         if (players[watch].target ~= nil) then
             if (players[players[watch].target] ~= nil) then
                 players[players[watch].target].ftarget.main:Hide()
+			end
         end
     end
 
@@ -1594,6 +1595,7 @@ local function UpdateTarget(target, value)
             if (players[watch].target ~= nil) then
                 if (players[players[watch].target] ~= nil) then
                     players[players[watch].target].ftarget.main:Hide()
+				end
             end
             players[value].ftarget.main:Show()
         end
