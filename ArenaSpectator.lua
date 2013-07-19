@@ -537,9 +537,6 @@ local function ClassToTexture(id)
     end
 end
 
-local function CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
-end
-
 -- Realigns all small frames
 local function RealignFrames()
     local team0 = SIZE.SMALL.FRAMEPOSITION
@@ -1850,8 +1847,8 @@ local function Execute(target, prefix, ...)
         RedrawClassIcon(target)
     elseif (prefix == "TIM") then
         SetEndTime(tonumber(value))
-	elseif (prefix == "SWING") then
-		CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
+	--elseif (prefix == "SWING") then
+	--	CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
     else
         DEFAULT_CHAT_FRAME:AddMessage("ARENASPECTATOR: Unhandled prefix: " .. prefix .. ". Try to update to newer version")
     end

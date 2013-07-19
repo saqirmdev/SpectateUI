@@ -64,23 +64,23 @@ local function combat(self, event, ...)
     fontHeight = FeedbackText.origHeight -- always start at original height
     local text, arg
     color = fColors and fColors.STANDARD or colors.STANDARD
---    local timestamp = nil
---	local eventType = SWING
---    if eventType:find("SPELL") then
-        -- timestamp, eventType, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellID, spellName, _, amount, _, resisted, blocked, absorbed, critical = ...
---    elseif eventType:find("SWING") then
---		isCritical, damageType, amount, spellID, targetGUID, casterGUID = ...  
+    local timestamp = nil
+	local eventType = SWING
+    if eventType:find("SPELL") then
+       -- timestamp, eventType, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellID, spellName, _, amount, _, resisted, blocked, absorbed, critical = ...
+   elseif eventType:find("SWING") then
+		isCritical, damageType, amount, spellID, targetGUID, casterGUID = ...  
         -- timestamp, eventType, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, amount, _, resisted, blocked, absorbed, critical = ...
---    end
+    end
 
-    local CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
+   -- local CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
 		isCritical = _isCritical
 		damageType = _damageType
 		amount = _amount
 		spellID = _spellID
-		targetGUID = _targetGUID
+     	targetGUID = _targetGUID
 		casterGUID = _casterGUID
-	end
+	-- end
     
     --if destName ~= self.unit then return end
     
