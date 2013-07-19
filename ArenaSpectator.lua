@@ -815,7 +815,11 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
 
         icon:SetID(index)
 
-        icon:SetAlpha(1)
+        icon:SetScript("OnUpdate", function(self, elapsed)
+            self:SetAlpha(self:GetAlpha() + .03)
+            if self:GetAlpha() == 1 then self:SetScript("OnUpdate", nil) end
+        end)
+
         icon.on = 1
     end
     icons[index].icon = icon
@@ -885,10 +889,6 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
                 contains = true
             end
         end
-
-        if contains == false then
-            return
-        end
     end
     
     local found, index = false, nil
@@ -898,6 +898,14 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             index = i
         end
     end
+	if dubration < 2 then
+		if found then
+		    aurastack[index].icon:SetAlpha(0)         
+            aurastack[index].icon.on = 0
+            aurastack[index].active = false
+		end
+		found = false
+	end
     if removeaura == 1 then
         if found then
             if aurastack[index].icon then 
@@ -1847,8 +1855,8 @@ local function Execute(target, prefix, ...)
         RedrawClassIcon(target)
     elseif (prefix == "TIM") then
         SetEndTime(tonumber(value))
-	--elseif (prefix == "SWING") then
-	--	CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
+	elseif (prefix == "SWING") then
+		local CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
     else
         DEFAULT_CHAT_FRAME:AddMessage("ARENASPECTATOR: Unhandled prefix: " .. prefix .. ". Try to update to newer version")
     end
