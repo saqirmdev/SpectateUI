@@ -64,29 +64,19 @@ local function combat(self, event, ...)
     fontHeight = FeedbackText.origHeight -- always start at original height
     local text, arg
     color = fColors and fColors.STANDARD or colors.STANDARD
---    local timestamp = nil
---	local eventType = SWING
---    if eventType:find("SPELL") then
-        -- timestamp, eventType, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellID, spellName, _, amount, _, resisted, blocked, absorbed, critical = ...
---    elseif eventType:find("SWING") then
---		isCritical, damageType, amount, spellID, targetGUID, casterGUID = ...  
-        -- timestamp, eventType, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, amount, _, resisted, blocked, absorbed, critical = ...
---    end
-
-		local function CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
-			isCritical = _isCritical
-			damageType = _damageType
-			amount = _amount
-			spellID = _spellID
-			targetGUID = _targetGUID
-			casterGUID = _casterGUID
-		end
     
-    --if destName ~= self.unit then return end
+    local timestamp, eventType = ...
+    if eventType:find("SPELL") then
+        timestamp, eventType, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, spellID, spellName, _, amount, _, resisted, blocked, absorbed, critical = ...
+    elseif eventType:find("SWING") then
+        timestamp, eventType, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, amount, _, resisted, blocked, absorbed, critical = ...
+    end
     
-    --if eventType:match("%w_DAMAGE") then
+    if destName ~= self.unit then return end
+    
+    if eventType:match("%w_DAMAGE") then
         if amount and tonumber(amount) and tonumber(amount) > 0 then
-            if isCritical == 1 then
+            if critical then
                 color = fColors and fColors.CRITICAL or colors.CRITICAL
                 fontHeight = fontHeight * 1.5
             else
@@ -94,34 +84,34 @@ local function combat(self, event, ...)
             end
             text = damage_format
             arg = amount
-        elseif damageType == 1 then
+        elseif absorbed and absorbed > 0 then
             color = fColors and fColors.ABSORB or colors.ABSORB
             fontHeight = fontHeight * 0.75
             text = CombatFeedbackText["ABSORB"]
-        elseif damageType == 3 then
+        elseif blocked then
             color = fColors and fColors.BLOCK or colors.BLOCK
             fontHeight = fontHeight * 0.75
             text = CombatFeedbackText["BLOCK"]
-        elseif damageType == 2 then
+        elseif resisted then
             color = fColors and fColors.RESIST or colors.RESIST
             fontHeight = fontHeight * 0.75
             text = CombatFeedbackText["RESIST"]
-        else if damageType == 4 then
+        else
             color = fColors and fColors.MISS or colors.MISS
             text = CombatFeedbackText["MISS"]
         end
-    --elseif eventType:find("_HEAL") then
-    --    if amount > 0 then
-    --        text = heal_format
-    --        arg = amount
-    --        if critical then
-    --            color = fColors and fColors.CRITHEAL or colors.CRITHEAL
-    --            fontHeight = fontHeight * 1.3
-    --        else
-    --            color = fColors and fColors.HEAL or colors.HEAL
-    --        end
-    --    end
-    -- end
+    elseif eventType:find("_HEAL") then
+        if amount > 0 then
+            text = heal_format
+            arg = amount
+            if critical then
+                color = fColors and fColors.CRITHEAL or colors.CRITHEAL
+                fontHeight = fontHeight * 1.3
+            else
+                color = fColors and fColors.HEAL or colors.HEAL
+            end
+        end
+    end
 
     if text then
         FeedbackText:SetFont(font,fontHeight,fontFlags)

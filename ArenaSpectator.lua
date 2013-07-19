@@ -1,4 +1,4 @@
---------------------------- ARENA SPECTATOR -----------------------------
+c--------------------------- ARENA SPECTATOR -----------------------------
 -- Author: Kerhong                                                     --
 -- Description: Allows better arena spectator experience               --
 -- Dependencies: Server side required (closed source)                  --
@@ -750,9 +750,10 @@ local SetPosition = function(icons, x)
     end
 end
 
+
 local createAuraIcon = function(unit, framename, icons, index)
     local button = CreateFrame("Button", "aura"..framename..unit..index, icons)
-	button:SetSize(icons.size or 24, icons.size or 24)
+    button:SetSize(icons.size or 24, icons.size or 24)
     
     local cd = _G[button:GetName().."Cooldown"] or CreateFrame("Cooldown", button:GetName().."Cooldown", button)
     cd:SetAllPoints(button)
@@ -814,12 +815,12 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
         icon.count:SetText((count > 1 and count))
 
         icon:SetID(index)
-
+        
         icon:SetScript("OnUpdate", function(self, elapsed)
             self:SetAlpha(self:GetAlpha() + .03)
             if self:GetAlpha() == 1 then self:SetScript("OnUpdate", nil) end
         end)
-
+        
         icon.on = 1
     end
     icons[index].icon = icon
@@ -832,6 +833,10 @@ local ResetAuras = function(aurastack)
             aurastack[index].icon.on = 0
         end
     end
+	if aurastack[index].icon then 
+		aurastack[index].icon:SetAlpha(0)              
+		aurastack[index].icon.on = 0
+	end
 end
 
 local getFree = function(object)
@@ -881,6 +886,7 @@ local Resort = function(object)
         end
     end
 end
+
 local function UpdateAuras(unit, aurastack, framename, removeaura, count, expiration, duration, spellId, debufftype, isDebuff, caster)
     if auralist[spellId] == nil then
         local contains = false
@@ -888,6 +894,10 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             if value == spellId then
                 contains = true
             end
+        end
+
+        if contains == false then
+            return
         end
     end
     
@@ -898,20 +908,24 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             index = i
         end
     end
-	if dubration < 2 then
+	
+	if expiration > 0 then
 		if found then
-		    aurastack[index].icon:SetAlpha(0)         
-            aurastack[index].icon.on = 0
-            aurastack[index].active = false
+			if aurastack[index].icon then 
+				aurastack[index].icon:SetAlpha(0)              
+				aurastack[index].icon.on = 0
+				aurastack[index].active = false
+			end
+			found = false
 		end
-		found = false
 	end
+	
     if removeaura == 1 then
         if found then
             if aurastack[index].icon then 
                 aurastack[index].icon:SetAlpha(0)              
                 aurastack[index].icon.on = 0
-                aurastack[index].active = false
+               aurastack[index].active = false
             end
             found = false
         end
@@ -921,8 +935,12 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             updateIcon(unit, framename, aurastack, #aurastack, spellId, count, expiration, duration, debufftype, isDebuff)
         else
             updateIcon(unit, framename, aurastack, index, spellId, count, expiration, duration, debufftype, isDebuff)
-        end
+         end
     end
+	
+	if active == false then
+		aurastack[index].icon.on = 0
+	end
     
     SetPosition(aurastack, aurastack.num or 64)
 end
@@ -1026,7 +1044,6 @@ local function CreateFrameForPlayer(p)
     cast.text:SetPoint("CENTER", 0, 0)
     cast.text:SetText(TEXT.SUCCESS)
     cast.text:SetTextColor(unpack(COLOR.CASTBAR_TEXT))
-	cast.direction = 1
     
     local debuffs = CreateFrame('Frame', nil, f)
     debuffs:SetSize(f:GetWidth(), f:GetHeight())
@@ -1152,7 +1169,6 @@ local function CreateFrameForPlayer(p)
     scast.text:SetPoint("CENTER", 0, 0)
     scast.text:SetText(TEXT.SUCCESS)
     scast.text:SetTextColor(unpack(COLOR.CASTBAR_TEXT))
-	scast.direction = 1
 
     local tf = CreateFrame("Button", nil, WorldFrame)
     tf:SetWidth(SIZE.BIG.WIDTH)
@@ -1450,7 +1466,6 @@ end
 local function ForceUpdate()
     SendChatMessage(".spectate reset", "GUILD");
 end
-
 
 -- Redraws class/cc icon for player (pla)
 local function RedrawClassIcon(pla)
@@ -1848,6 +1863,7 @@ local function Execute(target, prefix, ...)
         ResetAuras(players[target].fsmall.Debuffs)
         ResetAuras(players[target].ftarget.Debuffs)
         ResetAuras(players[target].fself.Debuffs)
+		RedrawClassIcon(target)
     elseif (prefix == "AUR") then
         UpdateAuras(target, players[target].fsmall.Debuffs, "small", ...)
         UpdateAuras(target, players[target].ftarget.Debuffs, "target", ...)
@@ -1855,8 +1871,6 @@ local function Execute(target, prefix, ...)
         RedrawClassIcon(target)
     elseif (prefix == "TIM") then
         SetEndTime(tonumber(value))
-	elseif (prefix == "SWING") then
-		local CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
     else
         DEFAULT_CHAT_FRAME:AddMessage("ARENASPECTATOR: Unhandled prefix: " .. prefix .. ". Try to update to newer version")
     end
