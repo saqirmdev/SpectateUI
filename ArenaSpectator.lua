@@ -537,6 +537,9 @@ local function ClassToTexture(id)
     end
 end
 
+local function CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
+end
+
 -- Realigns all small frames
 local function RealignFrames()
     local team0 = SIZE.SMALL.FRAMEPOSITION
@@ -750,10 +753,10 @@ local SetPosition = function(icons, x)
     end
 end
 
-
 local createAuraIcon = function(unit, framename, icons, index)
     local button = CreateFrame("Button", "aura"..framename..unit..index, icons)
-    button:SetSize(icons.size or 24, icons.size or 24)
+    button:SetWidth(icons.size or 24)
+    button:SetHeight(icons.size or 24)
     
     local cd = _G[button:GetName().."Cooldown"] or CreateFrame("Cooldown", button:GetName().."Cooldown", button)
     cd:SetAllPoints(button)
@@ -764,8 +767,8 @@ local createAuraIcon = function(unit, framename, icons, index)
     icon:SetTexCoord(.1,.9,.1,.9)
 
     local count = _G[button:GetName().."count"] or button:CreateFontString(button:GetName().."count", "OVERLAY")
-    count:SetFontObject(NumberFont_OutlineThick_Mono_Small)
-    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, -2)
+    count:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE")
+    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, 1)
 
     local overlayframe = _G[button:GetName().."OverlayFrame"] or CreateFrame("frame", button:GetName().."OverlayFrame", button)
     overlayframe:SetAllPoints(button)
@@ -816,11 +819,7 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
 
         icon:SetID(index)
         
-        icon:SetScript("OnUpdate", function(self, elapsed)
-            self:SetAlpha(self:GetAlpha() + .03)
-            if self:GetAlpha() == 1 then self:SetScript("OnUpdate", nil) end
-        end)
-        
+        icon:SetAlpha(1)
         icon.on = 1
     end
     icons[index].icon = icon
@@ -845,7 +844,8 @@ local getFree = function(object)
     end
     
     local frm = CreateFrame("frame", nil, object)
-    frm:SetSize(object:GetWidth(), object:GetWidth())
+    frm:SetWidth(object:GetWidth())
+    frm:SetHeight(object:GetHeight())
     frm:SetPoint("BOTTOM")
     frm.icon = frm:CreateTexture(nil, "OVERLAY")
     frm.icon:SetAllPoints()
@@ -882,7 +882,6 @@ local Resort = function(object)
         end
     end
 end
-
 local function UpdateAuras(unit, aurastack, framename, removeaura, count, expiration, duration, spellId, debufftype, isDebuff, caster)
     if auralist[spellId] == nil then
         local contains = false
@@ -909,7 +908,7 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             if aurastack[index].icon then 
                 aurastack[index].icon:SetAlpha(0)              
                 aurastack[index].icon.on = 0
-               aurastack[index].active = false
+                aurastack[index].active = false
             end
             found = false
         end
@@ -1024,6 +1023,7 @@ local function CreateFrameForPlayer(p)
     cast.text:SetPoint("CENTER", 0, 0)
     cast.text:SetText(TEXT.SUCCESS)
     cast.text:SetTextColor(unpack(COLOR.CASTBAR_TEXT))
+	cast.direction = 1
     
     local debuffs = CreateFrame('Frame', nil, f)
     debuffs:SetSize(f:GetWidth(), f:GetHeight())
@@ -1149,6 +1149,7 @@ local function CreateFrameForPlayer(p)
     scast.text:SetPoint("CENTER", 0, 0)
     scast.text:SetText(TEXT.SUCCESS)
     scast.text:SetTextColor(unpack(COLOR.CASTBAR_TEXT))
+	scast.direction = 1
 
     local tf = CreateFrame("Button", nil, WorldFrame)
     tf:SetWidth(SIZE.BIG.WIDTH)
@@ -1447,12 +1448,13 @@ local function ForceUpdate()
     SendChatMessage(".spectate reset", "GUILD");
 end
 
+
 -- Redraws class/cc icon for player (pla)
 local function RedrawClassIcon(pla)
     local highAura = nil
     local highAuraLevel = 0
     
-    for i, aura in ipairs(players[pla].fsmall.Debuffs) do
+    for i, aura in ipairs(ATPlayers[pla].fsmall.Debuffs) do
         if aura.active and auralist[aura.spellId] ~= nil then
             if auralist[aura.spellId] > highAuraLevel then
                 highAura = aura
@@ -1850,6 +1852,8 @@ local function Execute(target, prefix, ...)
         RedrawClassIcon(target)
     elseif (prefix == "TIM") then
         SetEndTime(tonumber(value))
+	elseif (prefix == "SWING") then
+		CombatLog(_isCritical, _damageType, _amount, _spellID, _targetGUID, _casterGUID)
     else
         DEFAULT_CHAT_FRAME:AddMessage("ARENASPECTATOR: Unhandled prefix: " .. prefix .. ". Try to update to newer version")
     end
