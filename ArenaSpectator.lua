@@ -755,8 +755,7 @@ end
 
 local createAuraIcon = function(unit, framename, icons, index)
     local button = CreateFrame("Button", "aura"..framename..unit..index, icons)
-    button:SetWidth(icons.size or 24)
-    button:SetHeight(icons.size or 24)
+	button:SetSize(icons.size or 24, icons.size or 24)
     
     local cd = _G[button:GetName().."Cooldown"] or CreateFrame("Cooldown", button:GetName().."Cooldown", button)
     cd:SetAllPoints(button)
@@ -767,8 +766,8 @@ local createAuraIcon = function(unit, framename, icons, index)
     icon:SetTexCoord(.1,.9,.1,.9)
 
     local count = _G[button:GetName().."count"] or button:CreateFontString(button:GetName().."count", "OVERLAY")
-    count:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE")
-    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, 1)
+    count:SetFontObject(NumberFont_OutlineThick_Mono_Small)
+    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, -2)
 
     local overlayframe = _G[button:GetName().."OverlayFrame"] or CreateFrame("frame", button:GetName().."OverlayFrame", button)
     overlayframe:SetAllPoints(button)
@@ -818,7 +817,7 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
         icon.count:SetText((count > 1 and count))
 
         icon:SetID(index)
-        
+
         icon:SetAlpha(1)
         icon.on = 1
     end
@@ -844,8 +843,7 @@ local getFree = function(object)
     end
     
     local frm = CreateFrame("frame", nil, object)
-    frm:SetWidth(object:GetWidth())
-    frm:SetHeight(object:GetHeight())
+    frm:SetSize(object:GetWidth(), object:GetWidth())
     frm:SetPoint("BOTTOM")
     frm.icon = frm:CreateTexture(nil, "OVERLAY")
     frm.icon:SetAllPoints()
@@ -1454,7 +1452,7 @@ local function RedrawClassIcon(pla)
     local highAura = nil
     local highAuraLevel = 0
     
-    for i, aura in ipairs(ATPlayers[pla].fsmall.Debuffs) do
+    for i, aura in ipairs(players[pla].fsmall.Debuffs) do
         if aura.active and auralist[aura.spellId] ~= nil then
             if auralist[aura.spellId] > highAuraLevel then
                 highAura = aura
