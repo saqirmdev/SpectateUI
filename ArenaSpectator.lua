@@ -1,4 +1,4 @@
-c--------------------------- ARENA SPECTATOR -----------------------------
+--------------------------- ARENA SPECTATOR -----------------------------
 -- Author: Kerhong                                                     --
 -- Description: Allows better arena spectator experience               --
 -- Dependencies: Server side required (closed source)                  --
@@ -750,10 +750,10 @@ local SetPosition = function(icons, x)
     end
 end
 
-
 local createAuraIcon = function(unit, framename, icons, index)
     local button = CreateFrame("Button", "aura"..framename..unit..index, icons)
-    button:SetSize(icons.size or 24, icons.size or 24)
+    button:SetWidth(icons.size or 24)
+    button:SetHeight(icons.size or 24)
     
     local cd = _G[button:GetName().."Cooldown"] or CreateFrame("Cooldown", button:GetName().."Cooldown", button)
     cd:SetAllPoints(button)
@@ -764,8 +764,8 @@ local createAuraIcon = function(unit, framename, icons, index)
     icon:SetTexCoord(.1,.9,.1,.9)
 
     local count = _G[button:GetName().."count"] or button:CreateFontString(button:GetName().."count", "OVERLAY")
-    count:SetFontObject(NumberFont_OutlineThick_Mono_Small)
-    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, -2)
+    count:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE")
+    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, 1)
 
     local overlayframe = _G[button:GetName().."OverlayFrame"] or CreateFrame("frame", button:GetName().."OverlayFrame", button)
     overlayframe:SetAllPoints(button)
@@ -789,7 +789,7 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
     local name, _, texture = GetSpellInfo(spellId)
     local icon = icons[index].icon or createAuraIcon(unit, framename, icons, index)
     icon.debuff = isDebuff
-    
+	
     if texture then
         local cd = icon.cd
         if(cd and not icons.disableCooldown) then
@@ -820,7 +820,7 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
             self:SetAlpha(self:GetAlpha() + .03)
             if self:GetAlpha() == 1 then self:SetScript("OnUpdate", nil) end
         end)
-        
+		
         icon.on = 1
     end
     icons[index].icon = icon
@@ -829,14 +829,10 @@ end
 local ResetAuras = function(aurastack)
     for index=1, #aurastack do
         if aurastack[index].icon then 
-            aurastack[index].icon:SetAlpha(0)         
-            aurastack[index].icon.on = 0
+				aurastack[index].icon:SetAlpha(0)         
+				aurastack[index].icon.on = 0
         end
     end
-	if aurastack[index].icon then 
-		aurastack[index].icon:SetAlpha(0)              
-		aurastack[index].icon.on = 0
-	end
 end
 
 local getFree = function(object)
@@ -895,7 +891,6 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
                 contains = true
             end
         end
-
         if contains == false then
             return
         end
@@ -909,8 +904,19 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
         end
     end
 	
-	if expiration > 0 then
-		if found then
+    --for index=1, #aurastack do
+    --    if aurastack[index].icon then 
+	--		if aurastack[index].icon.on == 0 or aurastack[index].icon.active == false then
+	--			aurastack[index].icon:SetAlpha(0)         
+	--			aurastack[index].icon.on = 0
+	--		end
+     --   end
+    --end
+	
+	if found then
+		if duration and duration > 0 then
+			found = true
+		else
 			if aurastack[index].icon then 
 				aurastack[index].icon:SetAlpha(0)              
 				aurastack[index].icon.on = 0
@@ -918,6 +924,11 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
 			end
 			found = false
 		end
+	end
+	
+	if active == false then
+		aurastack[index].icon:SetAlpha(0)              
+		aurastack[index].icon.on = 0
 	end
 	
     if removeaura == 1 then
@@ -937,10 +948,6 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             updateIcon(unit, framename, aurastack, index, spellId, count, expiration, duration, debufftype, isDebuff)
          end
     end
-	
-	if active == false then
-		aurastack[index].icon.on = 0
-	end
     
     SetPosition(aurastack, aurastack.num or 64)
 end
@@ -1044,6 +1051,7 @@ local function CreateFrameForPlayer(p)
     cast.text:SetPoint("CENTER", 0, 0)
     cast.text:SetText(TEXT.SUCCESS)
     cast.text:SetTextColor(unpack(COLOR.CASTBAR_TEXT))
+    cast.direction = 1
     
     local debuffs = CreateFrame('Frame', nil, f)
     debuffs:SetSize(f:GetWidth(), f:GetHeight())
@@ -1169,6 +1177,7 @@ local function CreateFrameForPlayer(p)
     scast.text:SetPoint("CENTER", 0, 0)
     scast.text:SetText(TEXT.SUCCESS)
     scast.text:SetTextColor(unpack(COLOR.CASTBAR_TEXT))
+	scast.direction = 1
 
     local tf = CreateFrame("Button", nil, WorldFrame)
     tf:SetWidth(SIZE.BIG.WIDTH)
@@ -1282,7 +1291,8 @@ local function CreateFrameForPlayer(p)
     tcast.text:SetPoint("CENTER", 0, 0)
     tcast.text:SetText(TEXT.SUCCESS)
     tcast.text:SetTextColor(unpack(COLOR.CASTBAR_TEXT))
-    
+    tcast.direction = 1
+	
     p.cooldowns = CreateFrame("frame", nil, WorldFrame)
     p.cooldowns:SetSize(28, 28)
     p.cooldowns:SetPoint("CENTER", 0, 0)
@@ -1479,6 +1489,8 @@ local function RedrawClassIcon(pla)
                 highAuraLevel = auralist[aura.spellId]
             end
         end
+		else
+			highAura = nil
     end
 
     if (highAura == nil) then
