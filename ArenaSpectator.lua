@@ -585,8 +585,7 @@ local function RealignFrames()
         p.fsmall.main:SetPoint(enemy and "RIGHT" or "LEFT", enemy and -SIZE.SMALL.FRAMEFROMBORDER or SIZE.SMALL.FRAMEFROMBORDER, diffy)
         p.fsmall.class:ClearAllPoints()
         p.fsmall.class:SetPoint(enemy and "TOPRIGHT" or "TOPLEFT", p.fsmall.main, enemy and -2 or 2, -2)
-        p.fsmall.class:SetWidth(p.fsmall.main:GetHeight()-4)
-        p.fsmall.class:SetHeight(p.fsmall.main:GetHeight()-4)
+        p.fsmall.class:SetSize(p.fsmall.main:GetHeight()-4, p.fsmall.main:GetHeight()-4)
         
         p.fsmall.health:ClearAllPoints()
         p.fsmall.health:SetPoint(enemy and "TOPRIGHT" or "TOPLEFT", p.fsmall.class, enemy and "TOPLEFT" or "TOPRIGHT", enemy and -2 or 2, 0)
@@ -612,9 +611,7 @@ local function SetViewPoint(frame)
     if (watch ~= nil) then
         players[watch].fself.main:Hide()
         if (players[watch].target ~= nil) then
-            if (players[players[watch].target] ~= nil) then
-                players[players[watch].target].ftarget.main:Hide()
-			end
+            players[players[watch].target].ftarget.main:Hide()
         end
     end
 
@@ -622,9 +619,7 @@ local function SetViewPoint(frame)
     if (watch ~= nil) then
         players[watch].fself.main:Show()
         if (players[watch].target ~= nil) then
-            if (players[players[watch].target] ~= nil) then
-                players[players[watch].target].ftarget.main:Show()
-            end
+            players[players[watch].target].ftarget.main:Show()
         end
     end
 end
@@ -655,20 +650,14 @@ local function UpdateFrame(self, elapsed)
     end
 end
 
--- Global castbar update function, updates castbars for all ATPlayers, called before every UI redraw
+-- Global castbar update function, updates castbars for all players, called before every UI redraw
 local function UpdateCastBar(self, elapsed)
     for _, p in pairs(players) do
-        local goal = select(2, p.fsmall.cast:GetMinMaxValues())
-        local current = p.fsmall.cast:GetValue()
-        local direction = p.fsmall.cast.direction
-        if direction < 0 then
-            goal = 0
-        end
-        local change = elapsed * direction
-        
-        if (direction > 0 and current < goal) or (direction < 0 and current > goal) then
+        local a, b = p.fsmall.cast:GetMinMaxValues()
+        if (p.fsmall.cast:GetValue() < b) then
+            local newvalue = p.fsmall.cast:GetValue() + elapsed
             for _, barname in pairs(ALLBARS) do
-                p[barname].cast:SetValue(current + change)
+                p[barname].cast:SetValue(newvalue)
             end
         else
             if ((p.fsmall.cast.text:GetText() == TEXT.SUCCESS) or (p.fsmall.cast.text:GetText() == TEXT.INTERRUPTED)) then
@@ -683,8 +672,7 @@ local function UpdateCastBar(self, elapsed)
                     p[barname].cast:GetStatusBarTexture():SetTexture(unpack(COLOR.CASTBAR_SUCCESS))
                     p[barname].cast.text:SetTextColor(unpack(COLOR.CASTBAR_SUCCESS_TEXT))
                     p[barname].cast.text:SetText(TEXT.SUCCESS)
-                    p[barname].cast.direction = 1
-                    p[barname].cast:SetMinMaxValues(0, 0.7)
+                    p[barname].cast:SetMinMaxValues(0, 0.4)
                     p[barname].cast:SetValue(0)
                 end
             end
@@ -750,10 +738,10 @@ local SetPosition = function(icons, x)
     end
 end
 
+
 local createAuraIcon = function(unit, framename, icons, index)
     local button = CreateFrame("Button", "aura"..framename..unit..index, icons)
-    button:SetWidth(icons.size or 24)
-    button:SetHeight(icons.size or 24)
+    button:SetSize(icons.size or 24, icons.size or 24)
     
     local cd = _G[button:GetName().."Cooldown"] or CreateFrame("Cooldown", button:GetName().."Cooldown", button)
     cd:SetAllPoints(button)
@@ -764,8 +752,8 @@ local createAuraIcon = function(unit, framename, icons, index)
     icon:SetTexCoord(.1,.9,.1,.9)
 
     local count = _G[button:GetName().."count"] or button:CreateFontString(button:GetName().."count", "OVERLAY")
-    count:SetFont(STANDARD_TEXT_FONT, 10, "OUTLINE")
-    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 1, 1)
+    count:SetFontObject(NumberFont_OutlineThick_Mono_Small)
+    count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", 2, -2)
 
     local overlayframe = _G[button:GetName().."OverlayFrame"] or CreateFrame("frame", button:GetName().."OverlayFrame", button)
     overlayframe:SetAllPoints(button)
@@ -789,15 +777,12 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
     local name, _, texture = GetSpellInfo(spellId)
     local icon = icons[index].icon or createAuraIcon(unit, framename, icons, index)
     icon.debuff = isDebuff
-	
+    
     if texture then
         local cd = icon.cd
         if(cd and not icons.disableCooldown) then
             if (duration and duration > 0) then
-                cd.cdStart = GetTime() - (duration - expiration) / 1000
-                cd.cdDuration = duration / 1000
-            
-                cd:SetCooldown(cd.cdStart, cd.cdDuration)
+                cd:SetCooldown(GetTime() - (duration - expiration) / 1000, duration/1000)
                 cd:Show()
             else
                 cd:Hide()
@@ -820,17 +805,21 @@ local updateIcon = function(unit, framename, icons, index, spellId, count, expir
             self:SetAlpha(self:GetAlpha() + .03)
             if self:GetAlpha() == 1 then self:SetScript("OnUpdate", nil) end
         end)
-		
+        
         icon.on = 1
     end
     icons[index].icon = icon
 end
 
-local ResetAuras = function(aurastack)
+local ResetAuras = function(aurastack)    
     for index=1, #aurastack do
         if aurastack[index].icon then 
-				aurastack[index].icon:SetAlpha(0)         
-				aurastack[index].icon.on = 0
+            aurastack[index].icon:SetScript("OnUpdate", function(self, elapsed)
+                self:SetAlpha(self:GetAlpha() - .03)
+                if self:GetAlpha() == 0 then self:SetScript("OnUpdate", nil) end
+            end)
+            
+            aurastack[index].icon.on = 0
         end
     end
 end
@@ -883,15 +872,10 @@ local Resort = function(object)
     end
 end
 
-local function UpdateAuras(unit, aurastack, framename, removeaura, count, expiration, duration, spellId, debufftype, isDebuff, caster)
-    if auralist[spellId] == nil then
-        local contains = false
-        for _, value in pairs(showAuras) do
-            if value == spellId then
-                contains = true
-            end
-        end
-        if contains == false then
+
+local UpdateAuras = function(unit, aurastack, framename, removeaura, count, expiration, duration, spellId, debufftype, isDebuff, caster)
+    for _, value in pairs(ignoreAuras) do
+        if value == spellId then
             return
         end
     end
@@ -903,50 +887,27 @@ local function UpdateAuras(unit, aurastack, framename, removeaura, count, expira
             index = i
         end
     end
-	
-    --for index=1, #aurastack do
-    --    if aurastack[index].icon then 
-	--		if aurastack[index].icon.on == 0 or aurastack[index].icon.active == false then
-	--			aurastack[index].icon:SetAlpha(0)         
-	--			aurastack[index].icon.on = 0
-	--		end
-     --   end
-    --end
-	
-	if found then
-		if duration and duration > 0 then
-			found = true
-		else
-			if aurastack[index].icon then 
-				aurastack[index].icon:SetAlpha(0)              
-				aurastack[index].icon.on = 0
-				aurastack[index].active = false
-			end
-			found = false
-		end
-	end
-	
-	if active == false then
-		aurastack[index].icon:SetAlpha(0)              
-		aurastack[index].icon.on = 0
-	end
-	
+    
     if removeaura == 1 then
         if found then
             if aurastack[index].icon then 
-                aurastack[index].icon:SetAlpha(0)              
+                --aurastack[index].icon:SetAlpha(0)
+                aurastack[index].icon:SetScript("OnUpdate", function(self, elapsed)
+                    self:SetAlpha(self:GetAlpha() - .03)
+                    if self:GetAlpha() == 0 then self:SetScript("OnUpdate", nil) end
+                end)
+                
                 aurastack[index].icon.on = 0
-               aurastack[index].active = false
             end
             found = false
         end
     else
         if not found then
-            table.insert(aurastack, {spellId = spellId, caster = caster, active = true } )
+            table.insert(aurastack, {spellId = spellId, caster = caster } )
             updateIcon(unit, framename, aurastack, #aurastack, spellId, count, expiration, duration, debufftype, isDebuff)
         else
             updateIcon(unit, framename, aurastack, index, spellId, count, expiration, duration, debufftype, isDebuff)
-         end
+        end
     end
     
     SetPosition(aurastack, aurastack.num or 64)
@@ -981,9 +942,6 @@ local function CreateFrameForPlayer(p)
     cla.texture:SetAllPoints(cla)
     cla.texture:SetTexture("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes")
     cla.texture:SetTexCoord(unpack(_CLASS_ICON_TCOORDS["WARRIOR"]))
-	cla.cooldown = CreateFrame("Cooldown", nil, cla)
-    cla.cooldown:SetAllPoints(cla)
-    cla.cooldown:SetReverse()
 	
     
     local hp = CreateFrame("StatusBar", nil, f)
@@ -992,7 +950,7 @@ local function CreateFrameForPlayer(p)
     hp:SetPoint("TOPLEFT", cla, "TOPRIGHT", 0, 0)
     -- hp.texture = hp:CreateTexture("ARTWORK")
     -- hp.texture:SetAllPoints(hp)
-    -- hp.texture:SetTexture(unpack(COLOR.HEALTH_BG))
+   -- hp.texture:SetTexture(unpack(COLOR.HEALTH_BG))
     local hptx = hp:CreateTexture("ARTWORK")
     hptx:SetAllPoints(hp)
     hptx:SetTexture(BAR_TEXTURE)
@@ -1004,6 +962,7 @@ local function CreateFrameForPlayer(p)
     hp.text:SetFont(STANDARD_TEXT_FONT, SIZE.SMALL.HEALTHTEXTSIZE, "OUTLINE")
     hp.text:SetPoint("CENTER", 0, 0)
     hp.text:SetText("100%")
+
 
     f.text:SetPoint("BOTTOM", hp, "TOP", 0, 2)
 
@@ -1479,24 +1438,26 @@ end
 
 -- Redraws class/cc icon for player (pla)
 local function RedrawClassIcon(pla)
-    local highAura = nil
-    local highAuraLevel = 0
-    
-    for i, aura in ipairs(players[pla].fsmall.Debuffs) do
-        if aura.active and auralist[aura.spellId] ~= nil then
-            if auralist[aura.spellId] > highAuraLevel then
-                highAura = aura
-                highAuraLevel = auralist[aura.spellId]
+    local highaura = nil
+    local highauralevel = 0
+    local texturepath = nil
+    local coordinates = nil
+
+    for caster, tb1 in pairs(players[pla].auras) do
+        for id, aura in pairs(tb1) do
+            if (auralist[aura] ~= nil) then
+                if (auralist[aura] > highauralevel) then
+                    highaura = aura
+                    highauralevel = auralist[aura]
+                end
             end
         end
-		else
-			highAura = nil
     end
 
-    if (highAura == nil) then
+    if (highaura == nil) then
+        texturepath = "Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes"
         for _, barname in pairs(ALLBARS) do
-            players[pla][barname].class.cooldown:Hide()
-            players[pla][barname].class.texture:SetTexture([[Interface\Glues\CharacterCreate\UI-CharacterCreate-Classes]])
+            players[pla][barname].class.texture:SetTexture(texturepath)
             players[pla][barname].class.texture:SetTexCoord(0,1,0,1)
             local t = _CLASS_ICON_TCOORDS[ClassToTexture(players[pla].class)]
             if t then
@@ -1507,19 +1468,14 @@ local function RedrawClassIcon(pla)
             end
         end
     else
-        local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(highAura.spellId)
+        local name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange = GetSpellInfo(highaura)
         for _, barname in pairs(ALLBARS) do
-            if highAura.icon.cd.cdStart ~= nil then
-                players[pla][barname].class.cooldown:SetCooldown(highAura.icon.cd.cdStart, highAura.icon.cd.cdDuration)
-                players[pla][barname].class.cooldown:Show()
-            else
-                players[pla][barname].class.cooldown:Hide()
-            end
             players[pla][barname].class.texture:SetTexture(icon)
             players[pla][barname].class.texture:SetTexCoord(.1,.9,.1,.9)
         end
     end
 end
+
 
 -- Used to set current power/health (field) for player (target) to (value)
 local function UpdateValue(target, field, value)
@@ -1647,6 +1603,35 @@ local function UpdateStatus(target, value)
     for _, barname in pairs(ALLBARS) do
         for __, f in pairs(players[target][barname]) do
             f:SetAlpha(newalpha)
+        end
+    end
+end
+
+-- Update aura for player (target), casted by unit (caster). Aura with id (value). (apply) = new aura/remove aura
+local function UpdateAura(target, caster, value, apply)
+    if (players[target] == nil) then
+        return
+    end
+
+    if (apply == true) then
+        if (players[target].auras[caster] == nil) then
+            players[target].auras[caster] = {}
+        end
+        table.insert(players[target].auras[caster], value)
+        if (auralist[value] ~= nil) then
+            RedrawClassIcon(target)
+        end
+    else
+        if (players[target].auras[caster] ~= nil) then
+            for loc, k in pairs(players[target].auras[caster]) do
+                if (k == value) then
+                    table.remove(players[target].auras[caster], loc)
+                    if (auralist[value] ~= nil) then
+                        RedrawClassIcon(target)
+                    end
+                    return
+                end
+            end
         end
     end
 end
@@ -1838,6 +1823,7 @@ local function Execute(target, prefix, ...)
     local value = ...
     if (players[target] == nil) then
         players[target] = CreatePlayer(target)
+        players[target].unit = target
         CreateFrameForPlayer(players[target])
         ForceUpdate()
     end
@@ -1875,12 +1861,10 @@ local function Execute(target, prefix, ...)
         ResetAuras(players[target].fsmall.Debuffs)
         ResetAuras(players[target].ftarget.Debuffs)
         ResetAuras(players[target].fself.Debuffs)
-		RedrawClassIcon(target)
     elseif (prefix == "AUR") then
         UpdateAuras(target, players[target].fsmall.Debuffs, "small", ...)
         UpdateAuras(target, players[target].ftarget.Debuffs, "target", ...)
         UpdateAuras(target, players[target].fself.Debuffs, "self", ...)
-        RedrawClassIcon(target)
     elseif (prefix == "TIM") then
         SetEndTime(tonumber(value))
     else
@@ -1928,6 +1912,12 @@ local function EventHandler(self, event, ...)
         end
     elseif (event == "PLAYER_ENTERING_WORLD") then
         Reset()
+    elseif (event == "COMBAT_LOG_EVENT_UNFILTERED") then
+        if (arg2 == "SPELL_AURA_APPLIED") then
+            UpdateAura(arg7, arg3, arg9, true)
+        elseif (arg2 == "SPELL_AURA_REMOVED") then
+            UpdateAura(arg7, arg3, arg9, false)
+        end
     end
     if event == "ADDON_LOADED" then
         updateScoreBoardFrame()
@@ -2333,7 +2323,6 @@ local function init()
     frame:RegisterEvent("CHAT_MSG_ADDON")
     frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	frame:RegisterEvent("ADDON_LOADED")
     frame:SetScript("OnEvent", EventHandler)
     frame:SetScript("OnUpdate", CheckUIVisibility)
 
@@ -2344,7 +2333,7 @@ local function init()
     local toggle = CreateFrame("Button", nil, WorldFrame)
     toggle:SetHeight(20)
     toggle:SetWidth(130)
-    toggle:SetPoint("TOPRIGHT", 15, 0)
+    toggle:SetPoint("TOP", 0, 0)
     toggle.texture = toggle:CreateTexture()
     toggle.texture:SetAllPoints(toggle)
     toggle.texture:SetTexture(0.6, 0.6, 0.2)
